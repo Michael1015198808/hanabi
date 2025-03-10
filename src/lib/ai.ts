@@ -144,6 +144,11 @@ function getPossibleCards(state: IGameState, player: number): ICard[] {
   }));
 }
 
+function isCardHinted(card) {
+    return Object.values(card.hint.color).some(value => value == IHintLevel.SURE) ||
+           Object.values(card.hint.number).some(value => value == IHintLevel.SURE);
+}
+
 /**
  * A deduction is a possible value for a card, inferred from different deduction levels.
  * Level 0: all possible values (color, number) given the card's hints are of level 0 (or more)
@@ -169,6 +174,8 @@ export function getLastOptimistCardOfPlayer(state: IGameState, player: number): 
 
   const lastTimePlayed = findLastIndex(state.turnsHistory, (g) => isPlayAction(g.action) && g.action.from === player);
 
+  console.log("last time played = ", lastTimePlayed, state.turnsHistory[lastTimePlayed])
+  console.log("last time hinted = ", lastTimeHinted, state.turnsHistory[lastTimeHinted])
   if (lastTimeHinted === -1 || lastTimePlayed > lastTimeHinted) {
     return null;
   }
@@ -178,6 +185,7 @@ export function getLastOptimistCardOfPlayer(state: IGameState, player: number): 
   const gameWhenLastHinted = getStateAtTurn(state, lastTimeHinted).players[player].hand;
 
   const firstHintedCard = gameWhenLastHinted.find((card) => card[lastHintReceived.type] === lastHintReceived.value);
+  console.log("first hinted card", firstHintedCard)
 
   return firstHintedCard || null;
 }
@@ -193,13 +201,30 @@ export function gameStateToGameView(gameState: IGameState): IGameView {
     const lastOptimistCard = getLastOptimistCardOfPlayer(state, i);
     const gameView = { hand: [] };
     const possibleCards = getPossibleCards(state, i);
+    var chop = player.hand.length - 1;
+    console.log("chop", chop);
+    console.log(player.hand);
+    while (chop >= 0 && isCardHinted(player.hand[chop])) {
+        chop -= 1;
+    }
+    console.log("for player", player.name, "chop is", chop);
+    console.log("last optimist card", lastOptimistCard?.id);
+    console.log(lastOptimistCard);
+    // const chopIsMarked = (player.hand[chop].id === lastOptimistCard?.id);
     player.hand.forEach((card: ICard) => {
       gameView.hand.push({
         hint: card.hint,
         deductions: getHintDeductions(card.hint, possibleCards, state),
         optimist: lastOptimistCard && card.id === lastOptimistCard.id,
+        // optimist: lastOptimistCard && !chopIsMarked && card.id === lastOptimistCard?.id,
       } as IHiddenCard);
     });
+    /*
+    gameView.hand.forEach((card: IHiddenCard) => {
+      console.log(card);
+      console.log(card.deductions.length);
+    })
+    */
     state.gameViews.push(gameView);
   });
 
@@ -321,11 +346,20 @@ export function chooseAction(state: IGameView): IAction {
   if (state.tokens.strikes < 2) {
     // find the most recent optimist card that may be playable and play it
     const optimistCardIndex = currentGameView.hand.findIndex((c) => c.optimist);
+    console.log(currentGameView.hand);
+    console.log(currentGameView.hand[0].hint);
+    console.log(currentGameView.hand[0].deductions);
+    console.log(currentGameView.hand[0].deductions.some((c) => isPlayable(c, state.playedCards)));
+    console.log(!isLastDiscardableCard(currentGameView.hand, optimistCardIndex, state));
     if (
       optimistCardIndex > -1 &&
       currentGameView.hand[optimistCardIndex].deductions.some((c) => isPlayable(c, state.playedCards)) &&
-      !isLastDiscardableCard(currentGameView.hand, optimistCardIndex, state)
+      (
+        !isLastDiscardableCard(currentGameView.hand, optimistCardIndex, state) ||
+        (state.options.noColorSave && (state.turnsHistory[findLastIndex(state.turnsHistory, (g) => isHintAction(g.action) && g.action.to === state.currentPlayer)].action as IHintAction).type == "color")
+      )
     ) {
+      console.log(optimistCardIndex, "playable with convention");
       return {
         action: "play",
         from: state.currentPlayer,
@@ -340,7 +374,7 @@ export function chooseAction(state: IGameView): IAction {
       if (
         card.deductions.every((deduction) => (
           isPlayable(deduction, state.playedCards) ||
-        // Under GTP, all deductions that lead to never playable results can be removed
+          // Under GTP, all deductions that lead to never playable results can be removed
           (isCardHinted(card) && !isCardEverPlayable(deduction, state)) ||
           // Teammates will not double-mark a same card
           (currentGameView.hand.some(card => card.deductions.length == 1 &&
@@ -351,6 +385,13 @@ export function chooseAction(state: IGameView): IAction {
         // There should be at least 1 playable deduction (counterexample: Cluing a color when all card of that colors are already played)
         card.deductions.some((deduction) => isPlayable(deduction, state.playedCards))
       ) {
+        // DEBUG
+        if (state.options.goodTouchPrinciple && !card.deductions.every((deduction) => isPlayable(deduction, state.playedCards))) {
+          card.deductions.forEach(deduction => {
+            console.log(deduction, isPlayable(deduction, state.playedCards), isCardEverPlayable(deduction, state))
+          })
+        }
+        console.log(card, "playable with GTP");
         return {
           action: "play",
           from: state.currentPlayer,
@@ -486,6 +527,7 @@ export function play(state: IGameState): IGameState {
   // we commit
   const gameView = gameStateToGameView(state);
   const action = chooseAction(gameView);
+  console.log(state);
   return commitAction(state, action);
 }
 

@@ -49,6 +49,7 @@ export interface IGameOptions {
   gameMode: GameMode;
   colorBlindMode: boolean;
   tutorial?: boolean;
+  noColorSave?: boolean;
   goodTouchPrinciple?: boolean;
 }
 
