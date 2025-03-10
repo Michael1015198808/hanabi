@@ -49,6 +49,7 @@ export interface IGameOptions {
   gameMode: GameMode;
   colorBlindMode: boolean;
   tutorial?: boolean;
+  goodTouchPrinciple?: boolean;
 }
 
 export enum GameVariant {

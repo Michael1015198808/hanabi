@@ -60,6 +60,7 @@ export default function NewGame() {
   const [turnsHistory] = useState(true);
   const [colorBlindMode, setColorBlindMode] = useLocalStorage("colorBlindMode", false);
   const [botsWait, setBotsWait] = useState(process.env.NODE_ENV === "production" ? 1000 : 0);
+  const [goodTouchPrinciple, setGoodTouchPrinciple] = useState(true);
 
   const [creatingGame, setCreatingGame] = useState(false);
 
@@ -89,6 +90,7 @@ export default function NewGame() {
         botsWait,
         colorBlindMode,
         gameMode: offline ? GameMode.PASS_AND_PLAY : GameMode.NETWORK,
+        goodTouchPrinciple,
       })
     );
 
@@ -215,7 +217,7 @@ export default function NewGame() {
               <Checkbox checked={turnsHistory} onChange={e => setTurnsHistory(e.target.checked)} />
             </Field> */}
 
-            <Field label={t("botSpeed", "Bots speed")}>
+            <Field className="pb3 mb3 bb b--yellow-light" label={t("botSpeed", "Bots speed")}>
               <Select
                 className="pl3"
                 formatter={t}
@@ -224,6 +226,10 @@ export default function NewGame() {
                 value={botsWait}
                 onChange={(e) => setBotsWait(+e.target.value)}
               />
+            </Field>
+
+            <Field className="pb3 mb3 bb" label={t("goodTouchPrinciple", "Good Touch Principle (WIP)")}>
+              <Checkbox checked={goodTouchPrinciple} onChange={(e) => setGoodTouchPrinciple(e.target.checked)} />
             </Field>
           </>
         )}

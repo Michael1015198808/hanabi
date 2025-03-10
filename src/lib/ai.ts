@@ -334,6 +334,32 @@ export function chooseAction(state: IGameView): IAction {
     }
   }
 
+  if (state.options.goodTouchPrinciple) {
+    for (let i = 0; i < currentGameView.hand.length; i++) {
+      const card = currentGameView.hand[i];
+      if (
+        card.deductions.every((deduction) => (
+          isPlayable(deduction, state.playedCards) ||
+        // Under GTP, all deductions that lead to never playable results can be removed
+          (isCardHinted(card) && !isCardEverPlayable(deduction, state)) ||
+          // Teammates will not double-mark a same card
+          (currentGameView.hand.some(card => card.deductions.length == 1 &&
+              card.deductions[0].color == deduction.color &&
+              card.deductions[0].number == deduction.number))
+          )
+        ) &&
+        // There should be at least 1 playable deduction (counterexample: Cluing a color when all card of that colors are already played)
+        card.deductions.some((deduction) => isPlayable(deduction, state.playedCards))
+      ) {
+        return {
+          action: "play",
+          from: state.currentPlayer,
+          cardIndex: i,
+        };
+      }
+    }
+  }
+
   if (state.tokens.hints > 0) {
     // if someone has a playable card (but with some hint uncertainty), give hint
     for (let i = 1; i < state.options.playersCount; i++) {
